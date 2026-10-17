@@ -1,0 +1,16 @@
+{
+  "name": "pi-software-design-philosophy",
+  "version": "1.0.0",
+  "description": "Pi skill applying the ideas of John Ousterhout's A Philosophy of Software Design to design, implementation, code review and refactoring",
+  "keywords": [
+    "pi-package",
+    "skill",
+    "software-design"
+  ],
+  "license": "MIT",
+  "files": [
+    "skills",
+    "README.md",
+    "LICENSE"
+  ]
+}
