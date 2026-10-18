@@ -19,16 +19,47 @@ The skill runs in one of four modes, chosen from your request:
 
 ## Install
 
-From GitHub (pin a tag for reproducible installs):
+### From npm (recommended)
+
+Installs just this skill:
 
 ```bash
-pi install git:github.com/<your-github-user>/pi-software-design-philosophy@v1.0.0
+pi install npm:pi-software-design-philosophy
 ```
 
-Or try it for a single session without installing:
+To pin a version for reproducible installs:
 
 ```bash
-pi -e git:github.com/<your-github-user>/pi-software-design-philosophy
+pi install npm:pi-software-design-philosophy@1.0.0
+```
+
+To try it for a single session without installing:
+
+```bash
+pi -e npm:pi-software-design-philosophy
+```
+
+Update later with `pi update npm:pi-software-design-philosophy`. Pinned versions stay pinned, so change the version in the source to upgrade.
+
+### From GitHub (all skills in the repository)
+
+This skill lives in the [siriuslan/pi-packages](https://github.com/siriuslan/pi-packages) repository. Installing from git loads **every** skill in that repository:
+
+```bash
+pi install git:github.com/siriuslan/pi-packages@v1.0.1
+```
+
+To load only this skill from the git install, use the object form in `~/.pi/agent/settings.json`:
+
+```json
+{
+  "packages": [
+    {
+      "source": "git:github.com/siriuslan/pi-packages@v1.0.1",
+      "skills": ["packages/pi-software-design-philosophy/skills/*"]
+    }
+  ]
+}
 ```
 
 ## Usage

@@ -1,0 +1,9 @@
+{
+  "name": "pi-packages",
+  "private": true,
+  "description": "siriuslan's pi packages (skills, extensions, prompts)",
+  "keywords": ["pi-package"],
+  "pi": {
+    "skills": ["./packages/*/skills"]
+  }
+}
