@@ -1,7 +1,10 @@
 {
-  "name": "atomic-git-commits",
+  "name": "@siriuslan/atomic-git-commits",
   "version": "1.0.0",
   "description": "Pi skill that builds multi-part changes as small, dependency-ordered steps and records each one as an atomic git commit titled TICKET-description",
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "pi-package",
     "skill",
@@ -19,5 +22,8 @@
     "skills",
     "README.md",
     "LICENSE"
-  ]
+  ],
+  "dependencies": {
+    "@siriuslan/atomic-git-commits": "^1.0.0"
+  }
 }

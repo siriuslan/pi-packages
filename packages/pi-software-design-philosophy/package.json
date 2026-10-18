@@ -1,7 +1,10 @@
 {
-  "name": "pi-software-design-philosophy",
+  "name": "@siriuslan/pi-software-design-philosophy",
   "version": "1.0.0",
   "description": "Pi skill applying the ideas of John Ousterhout's A Philosophy of Software Design to design, implementation, code review and refactoring",
+  "publishConfig": {
+    "access": "public"
+  },
   "keywords": [
     "pi-package",
     "skill",
