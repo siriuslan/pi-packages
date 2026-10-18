@@ -1,0 +1,23 @@
+{
+  "name": "atomic-git-commits",
+  "version": "1.0.0",
+  "description": "Pi skill that builds multi-part changes as small, dependency-ordered steps and records each one as an atomic git commit titled TICKET-description",
+  "keywords": [
+    "pi-package",
+    "skill",
+    "git",
+    "commits"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siriuslan/pi-packages.git",
+    "directory": "packages/atomic-git-commits"
+  },
+  "homepage": "https://github.com/siriuslan/pi-packages/tree/main/packages/atomic-git-commits#readme",
+  "files": [
+    "skills",
+    "README.md",
+    "LICENSE"
+  ]
+}
