@@ -22,8 +22,5 @@
     "skills",
     "README.md",
     "LICENSE"
-  ],
-  "dependencies": {
-    "@siriuslan/atomic-git-commits": "^1.0.0"
-  }
+  ]
 }

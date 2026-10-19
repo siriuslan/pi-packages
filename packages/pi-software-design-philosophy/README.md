@@ -24,22 +24,22 @@ The skill runs in one of four modes, chosen from your request:
 Installs just this skill:
 
 ```bash
-pi install npm:pi-software-design-philosophy
+pi install npm:@siriuslan/pi-software-design-philosophy
 ```
 
 To pin a version for reproducible installs:
 
 ```bash
-pi install npm:pi-software-design-philosophy@1.0.0
+pi install npm:@siriuslan/pi-software-design-philosophy@1.0.0
 ```
 
 To try it for a single session without installing:
 
 ```bash
-pi -e npm:pi-software-design-philosophy
+pi -e npm:@siriuslan/pi-software-design-philosophy
 ```
 
-Update later with `pi update npm:pi-software-design-philosophy`. Pinned versions stay pinned, so change the version in the source to upgrade.
+Update later with `pi update npm:@siriuslan/pi-software-design-philosophy`. Pinned versions stay pinned, so change the version in the source to upgrade.
 
 ### From GitHub (all skills in the repository)
 

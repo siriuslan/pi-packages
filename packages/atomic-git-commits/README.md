@@ -27,22 +27,22 @@ Worked examples are included for a backend `POST /users` endpoint and a React si
 Installs just this skill:
 
 ```bash
-pi install npm:atomic-git-commits
+pi install npm:@siriuslan/atomic-git-commits
 ```
 
 To pin a version for reproducible installs:
 
 ```bash
-pi install npm:atomic-git-commits@1.0.0
+pi install npm:@siriuslan/atomic-git-commits@1.0.0
 ```
 
 To try it for a single session without installing:
 
 ```bash
-pi -e npm:atomic-git-commits
+pi -e npm:@siriuslan/atomic-git-commits
 ```
 
-Update later with `pi update npm:atomic-git-commits`. Pinned versions stay pinned, so change the version in the source to upgrade.
+Update later with `pi update npm:@siriuslan/atomic-git-commits`. Pinned versions stay pinned, so change the version in the source to upgrade.
 
 ### From GitHub (all skills in the repository)
 

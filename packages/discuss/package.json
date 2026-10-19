@@ -1,0 +1,39 @@
+{
+  "name": "@siriuslan/discuss",
+  "version": "0.1.0",
+  "description": "Pi extension for moderated multi-participant discussions: project folders and/or roles, each on its own agent (pi, Claude Code or Codex), model and thinking level, recorded in one markdown document",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "pi-package",
+    "extension",
+    "discussion",
+    "multi-agent",
+    "claude-code",
+    "codex"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siriuslan/pi-packages.git",
+    "directory": "packages/discuss"
+  },
+  "homepage": "https://github.com/siriuslan/pi-packages/tree/main/packages/discuss#readme",
+  "files": [
+    "index.ts",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}
