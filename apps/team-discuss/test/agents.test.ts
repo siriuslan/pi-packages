@@ -285,10 +285,11 @@ describe("failed turns", () => {
 });
 
 describe("which agent may take which seat", () => {
-	test("pi and Claude Code may take both seats", async () => {
-		for (const agent of ["pi", "claude"] as const) {
-			assert.equal(await unavailableReason(agent, "participant"), undefined);
-			assert.equal(await unavailableReason(agent, "moderator"), undefined);
+	test("only pi's seat limits have passed the real-agent probes so far", async () => {
+		assert.equal(await unavailableReason("pi", "participant"), undefined);
+		assert.equal(await unavailableReason("pi", "moderator"), undefined);
+		for (const kind of ["participant", "moderator"] as const) {
+			assert.match((await unavailableReason("claude", kind)) ?? "", /isn't verified|aren't verified/);
 		}
 	});
 

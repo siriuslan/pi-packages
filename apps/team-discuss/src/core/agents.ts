@@ -68,9 +68,15 @@ export function agentSummary(s: { agent: AgentId; model: string; thinking: strin
  */
 const SEATS: Record<AgentId, Record<SeatKind, true | string>> = {
 	pi: { participant: true, moderator: true },
-	claude: { participant: true, moderator: true },
+	// Live probes are blocked by an expired/revoked Claude login. Documented
+	// flags aren't evidence that these seats passed: keep them closed until
+	// the participant and no-tools moderator probes can actually run.
+	claude: {
+		participant: "Claude Code's participant limits aren't verified yet",
+		moderator: "Claude Code's no-tools moderator mode isn't verified yet",
+	},
 	codex: {
-		participant: "Codex's read-only limits for participants aren't verified yet",
+		participant: "Codex's read-only limits aren't verified: the tested model needs the disabled Code Mode host",
 		moderator: "Codex can't be the moderator: it has no mode without tools",
 	},
 };
@@ -195,7 +201,9 @@ export function thinkingLevels(id: AgentId, model: string): string[] {
  * The Codex features a participant keeps. Every other feature Codex knows is
  * turned off, so features added by future versions start out off. These are
  * what reading files needs: the shell (sandboxed read-only) and image viewing.
- * Provisional until the real-agent probes have checked them.
+ * The live probes found that gpt-5.6-terra needs code_mode_host. Do not simply
+ * allow it to make the read probe pass: its execution paths, sandbox and MCP
+ * access need verification first. Codex participants remain unavailable.
  */
 const CODEX_PARTICIPANT_FEATURES = new Set(["shell_tool", "unified_exec", "unified_exec_tty", "shell_snapshot", "view_image"]);
 
