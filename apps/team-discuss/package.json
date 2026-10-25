@@ -1,0 +1,37 @@
+{
+  "name": "@siriuslan/team-discuss",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Terminal app for moderated discussions between AI agents (pi, Claude Code, Codex): the app moderates, you watch and join in",
+  "type": "module",
+  "keywords": [
+    "discussion",
+    "multi-agent",
+    "tui",
+    "pi",
+    "claude-code",
+    "codex"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siriuslan/pi-packages.git",
+    "directory": "apps/team-discuss"
+  },
+  "homepage": "https://github.com/siriuslan/pi-packages/tree/main/apps/team-discuss#readme",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^7.0.2"
+  }
+}
