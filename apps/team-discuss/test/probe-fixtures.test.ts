@@ -67,6 +67,41 @@ for (const agent of AGENT_IDS) {
 	});
 }
 
+test("Claude canary controls restore legacy approvals and the original workspace", async (t) => {
+	const home = sourceHome(t);
+	const originalPath = process.env.PATH;
+	t.after(() => { if (originalPath === undefined) delete process.env.PATH; else process.env.PATH = originalPath; });
+	const f = await fixture("claude");
+	try {
+		const configFile = path.join(process.env.CLAUDE_CONFIG_DIR!, ".claude.json");
+		const original = fs.readFileSync(configFile, "utf8");
+		const bin = path.join(home, "bin");
+		const script = path.join(home, "fake-mcp-control.cjs");
+		fs.mkdirSync(bin);
+		fs.writeFileSync(script, `
+const fs = require('node:fs');
+const path = require('node:path');
+const file = path.join(process.env.CLAUDE_CONFIG_DIR, '.claude.json');
+const config = JSON.parse(fs.readFileSync(file, 'utf8'));
+const name = process.argv.at(-1);
+const servers = name === 'user_canary' ? config.mcpServers : JSON.parse(fs.readFileSync('.mcp.json', 'utf8')).mcpServers;
+fs.appendFileSync(servers[name].args[1], 'started\\n');
+fs.writeFileSync('.claude/settings.local.json', JSON.stringify({enabledMcpjsonServers: ['project_canary']}));
+delete config.projects[process.cwd()].enabledMcpjsonServers;
+fs.writeFileSync(file, JSON.stringify(config));
+`);
+		fs.writeFileSync(path.join(bin, "claude"), `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(script)} "$@"\n`, { mode: 0o755 });
+		process.env.PATH = bin; // no real agent CLI is reachable
+		await f.checkCanaries("fake-model");
+		assert.ok(f.markers.every((marker) => fs.existsSync(marker)));
+		assert.deepEqual(snapshot(f.cwd), f.before);
+		assert.equal(fs.readFileSync(configFile, "utf8"), original);
+		assert.deepEqual(JSON.parse(original).projects[f.cwd].enabledMcpjsonServers, ["project_canary"]);
+		f.clearMarkers();
+		assert.ok(f.markers.every((marker) => !fs.existsSync(marker)));
+	} finally { f.close(); }
+});
+
 test("probe snapshots notice contents, permissions, empty directories and symlinks", async (t) => {
 	sourceHome(t);
 	const f = await fixture("pi");

@@ -50,7 +50,8 @@ export interface ProbeFixture {
 	cwd: string;
 	secret: string;
 	markers: string[];
-	before: Record<string, string>;
+	/** Baseline before any controls or agent turns; never absorb startup writes. */
+	readonly before: Readonly<Record<string, string>>;
 	/** Positive controls must start each configured server before marker absence can mean anything. */
 	checkCanaries(model: string): Promise<void>;
 	clearMarkers(): void;
@@ -131,8 +132,21 @@ export async function fixture(agent: AgentId): Promise<ProbeFixture> {
 			async checkCanaries(model) {
 				if (agent === "pi") await quiet(process.env.TEAM_DISCUSS_PI_BIN || "pi", ["mcp", "list", "--json"], cwd);
 				else if (agent === "claude") {
-					await quiet("claude", ["mcp", "get", "user_canary"], cwd);
-					await quiet("claude", ["mcp", "get", "project_canary"], cwd);
+					const configFile = path.join(env.CLAUDE_CONFIG_DIR!, ".claude.json");
+					const originalConfig = fs.readFileSync(configFile, "utf8");
+					try {
+						await quiet("claude", ["mcp", "get", "user_canary"], cwd);
+						await quiet("claude", ["mcp", "get", "project_canary"], cwd);
+					} finally {
+						// Controls can migrate the legacy project approval from our
+						// temporary .claude.json into workspace settings.local.json.
+						// Restore BOTH sides so the adapter still tests fresh startup.
+						// A signal handler may already have removed the private root.
+						if (fs.existsSync(root)) {
+							write(configFile, originalConfig);
+							fs.rmSync(path.join(cwd, ".claude/settings.local.json"), { force: true });
+						}
+					}
 				} else {
 					await quiet("codex", ["exec", "--json", "--skip-git-repo-check", "-m", model, "-s", "read-only", "-c", 'approval_policy="never"', "-c", 'model_reasoning_effort="low"', "-"], cwd, "Reply CONTROL_OK without calling tools.");
 				}

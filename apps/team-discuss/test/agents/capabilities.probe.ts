@@ -130,9 +130,8 @@ for (const agent of AGENT_IDS) {
 		t.diagnostic((await quiet(agent === "pi" ? process.env.TEAM_DISCUSS_PI_BIN || "pi" : agent, ["--version"])).trim());
 		await f.checkCanaries(base.model);
 		f.clearMarkers();
-		// Claude's MCP approval command can save settings.local.json. That is
-		// fixture preparation; no adapter turn may write anything afterwards.
-		f.before = snapshot(f.cwd);
+		// Controls must leave the original workspace intact, not pre-migrate it
+		// so an adapter's fresh-start writes disappear into a new baseline.
 		unchanged(f);
 		for (const webSearch of agent === "pi" ? [false] : [false, true]) {
 			await t.test(`webSearch=${webSearch}: fresh and resumed`, async (child) => {
