@@ -331,7 +331,13 @@ The read-only view (§8) only allows scrolling, `/takeover` and `/back`.
 - `isAgentInstalled()` checks `PATH` for **all** agents, pi included.
 - pi's model list comes from `pi --list-models` (cached). Typing any model name still works.
 - The request names the seat kind, `"participant"` or `"moderator"`, and the adapter applies
-  that kind's limits (§6.1). `eligible(agent, kind)` says whether an agent may take that seat.
+  that kind's limits (§6.1). The limits are always applied; `runTurn` itself doesn't decide
+  who may take a seat, so the probes (§10) can test a combination before it is offered.
+- `unavailableReason(agent, kind)` says why an agent can't take that seat on this machine
+  (not eligible, not installed, Codex's feature list unreadable), or nothing if it can. Setup
+  offers only agents without a reason, and `DiscussionRun` asks again before every attempt.
+- The message goes to every CLI on **stdin**. Linux caps a single argument at 128 KB, and a
+  whole discussion can be bigger than that.
 - Turns run in their own process group (§6.3).
 
 ### 6.1 What each agent may do, and where it is offered
@@ -803,6 +809,8 @@ Commit titles use the prefix `team-discuss`, e.g. `team-discuss-add home store`.
     because none is named in the `--tools` allowlist and neither `codemode` nor
     `tool_search` is listed. Fix: `--no-mcp --exclude-tools 'mcp__*'`.
   - Its Codex participants run with Codex's default features and the user's config.
+  - Its pi adapter passes the turn message as one argument, which fails on Linux once the
+    unseen part of the discussion passes 128 KB.
 - **CLI behavior changes.** The limits in §6.1 depend on each CLI's flags. Unknown flags fail
   closed, the adapter tests pin the argument lists, and the probes catch changed behavior.
   Rerun the probes when raising the tested versions.
