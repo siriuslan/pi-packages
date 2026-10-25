@@ -15,11 +15,11 @@
  *   128 KB, and a long discussion is bigger than that.
  */
 
-import { execFile, spawn } from "node:child_process";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { processes } from "./processes.ts";
 
 export type AgentId = "pi" | "claude" | "codex";
 export const AGENT_IDS: readonly AgentId[] = ["pi", "claude", "codex"];
@@ -430,6 +430,7 @@ const ADAPTERS: Record<AgentId, Adapter> = { pi, claude, codex };
  * see unavailableReason().
  */
 export async function runTurn(req: TurnRequest, signal?: AbortSignal, onProgress?: (status: string) => void): Promise<TurnOutcome> {
+	if (signal?.aborted) throw new Error("Turn was aborted");
 	const adapter = ADAPTERS[req.agent];
 	const { command, args, sessionId } = await adapter.invocation(req);
 	const label = AGENTS[req.agent].label;
@@ -448,71 +449,71 @@ export async function runTurn(req: TurnRequest, signal?: AbortSignal, onProgress
 		},
 	};
 
-	return new Promise((resolve, reject) => {
-		const proc = spawn(command, args, { cwd: req.cwd, shell: false, stdio: ["pipe", "pipe", "pipe"] });
-		let buffer = "";
-		let stderr = "";
-		let aborted = false;
-		let settled = false;
-		const finish = (fn: () => void) => {
-			if (!settled) {
-				settled = true;
-				fn();
-			}
-		};
-
-		const onLine = (line: string) => {
-			if (!line.trim().startsWith("{")) return; // CLIs may print non-JSON warnings
-			try {
-				adapter.onEvent(JSON.parse(line), turn);
-			} catch {
-				// ignore malformed lines
-			}
-		};
-
-		// The CLI may exit before reading all of stdin; its exit status says why.
-		proc.stdin?.on("error", () => {});
-		proc.stdin?.end(req.message);
-		proc.stdout?.on("data", (chunk) => {
-			if (aborted) return;
-			buffer += chunk.toString();
-			const lines = buffer.split("\n");
-			buffer = lines.pop() ?? "";
-			for (const line of lines) onLine(line);
-		});
-		proc.stderr?.on("data", (chunk) => (stderr += chunk.toString()));
-		proc.on("error", (err) => finish(() => reject(new Error(`Could not start ${label} (${command}): ${err.message}`))));
-		proc.on("close", (code) => {
-			if (buffer.trim() && !aborted) onLine(buffer);
-			finish(() => {
-				if (aborted) return reject(new Error("Turn was aborted"));
-				if (turn.error) return reject(new Error(`${label}: ${turn.error}`));
-				if (code !== 0) return reject(new Error(`${label} exited with code ${code}: ${stderr.trim().slice(-2000)}`));
-				if (!turn.reply) return reject(new Error(`${label} produced no reply`));
-				if (!turn.sessionId) return reject(new Error(`${label} did not report a session id`));
-				resolve({ reply: turn.reply, sessionId: turn.sessionId, costUsd: turn.costUsd, tokens: turn.tokens });
-			});
-		});
-
-		if (signal) {
-			const kill = () => {
-				aborted = true;
-				proc.kill("SIGTERM");
-				setTimeout(() => proc.exitCode === null && proc.kill("SIGKILL"), 5000).unref();
-			};
-			if (signal.aborted) kill();
-			else signal.addEventListener("abort", kill, { once: true });
+	let buffer = "";
+	let stderr = "";
+	const onLine = (line: string) => {
+		if (signal?.aborted || !line.trim().startsWith("{")) return; // CLIs may print non-JSON warnings
+		let event: unknown;
+		try {
+			event = JSON.parse(line);
+		} catch {
+			return; // ignore malformed lines, not adapter/progress callback errors
 		}
-	});
+		adapter.onEvent(event, turn);
+	};
+
+	let outcome;
+	try {
+		outcome = await processes.run({
+			command, args, cwd: req.cwd, input: req.message,
+			onStdout(chunk) {
+				buffer += chunk;
+				const lines = buffer.split("\n");
+				buffer = lines.pop() ?? "";
+				for (const line of lines) onLine(line);
+			},
+			onStderr(chunk) { stderr = (stderr + chunk).slice(-2000); },
+		}, signal);
+	} catch (err) {
+		if (err instanceof Error && err.name === "AbortError") throw new Error("Turn was aborted", { cause: err });
+		const syscall = (err as NodeJS.ErrnoException).syscall;
+		if (syscall?.startsWith("spawn")) throw new Error(`Could not start ${label} (${command}): ${errorMessage(err)}`, { cause: err });
+		throw new Error(`${label}: ${errorMessage(err)}`, { cause: err });
+	}
+	if (buffer.trim()) onLine(buffer);
+	if (signal?.aborted) throw new Error("Turn was aborted");
+	if (turn.error) throw new Error(`${label}: ${turn.error}`);
+	if (outcome.signal) throw new Error(`${label} exited on signal ${outcome.signal}: ${stderr.trim()}`);
+	if (outcome.code !== 0) throw new Error(`${label} exited with code ${outcome.code}: ${stderr.trim()}`);
+	if (!turn.reply) throw new Error(`${label} produced no reply`);
+	if (!turn.sessionId) throw new Error(`${label} did not report a session id`);
+	return { reply: turn.reply, sessionId: turn.sessionId, costUsd: turn.costUsd, tokens: turn.tokens };
 }
 
 // ---------------------------------------------------------------------------
 
 /** Run a short command and return its stdout; rejects on a non-zero exit or after 15 s. */
-function runQuietly(command: string, args: string[]): Promise<string> {
-	return new Promise((resolve, reject) => {
-		execFile(command, args, { timeout: 15_000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout) => (err ? reject(err) : resolve(stdout)));
+async function runQuietly(command: string, args: string[]): Promise<string> {
+	let stdout = "";
+	let stderr = "";
+	let outBytes = 0;
+	let errBytes = 0;
+	const maxBuffer = 4 * 1024 * 1024;
+	const outcome = await processes.run({
+		command, args, timeoutMs: 15_000,
+		onStdout(chunk) {
+			outBytes += Buffer.byteLength(chunk);
+			if (outBytes > maxBuffer) throw new Error(`${command} stdout exceeded ${maxBuffer} bytes`);
+			stdout += chunk;
+		},
+		onStderr(chunk) {
+			errBytes += Buffer.byteLength(chunk);
+			if (errBytes > maxBuffer) throw new Error(`${command} stderr exceeded ${maxBuffer} bytes`);
+			stderr = (stderr + chunk).slice(-2000);
+		},
 	});
+	if (outcome.code !== 0 || outcome.signal) throw new Error(`${command} failed (${outcome.signal ?? outcome.code}): ${stderr.trim()}`);
+	return stdout;
 }
 
 function errorMessage(err: unknown): string {

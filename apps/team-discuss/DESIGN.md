@@ -403,12 +403,17 @@ The read-only view (§8) only allows scrolling, `/takeover` and `/back`.
   3. Send SIGKILL to the group.
 
   This runs whenever a turn ends, whether it finished, failed or was stopped, and even if the
-  agent itself has already exited. Nothing a turn started outlives it.
+  agent itself has already exited. Cleanup starts on the direct child's `exit`, not `close`:
+  descendants can inherit its pipes and keep `close` from firing. After cleanup, final output
+  is drained, with a 1 s limit in case an escaped descendant holds a pipe; hitting that limit
+  fails the turn. Nothing remaining in the turn's process group outlives it.
 - **Stopping a turn:** output after the stop is ignored, and the turn returns no reply,
   session id or usage. The open attempt makes the seat's session fresh next time (§6.2).
 - **Quitting:**
   - The quit key and SIGINT, SIGTERM and SIGHUP run an async shutdown. It waits for every
-    group's cleanup (at most 5 s), releases the lock, then exits.
+    group's cleanup (5 s grace plus at most 1 s for final pipe drain), releases the lock,
+    then exits. `processes.shutdown()` refuses new commands and awaits all current commands;
+    CLI discovery queries use it too. The app wires the signal and quit handlers in step 10.
   - The `exit` handler is only a synchronous last resort: it sends SIGKILL to any groups left.
   - If the app is killed with SIGKILL, each agent finishes its single turn and exits on its
     own. The result is never committed.
@@ -773,7 +778,9 @@ agent and seat kind, each probe runs in an empty temp folder:
 
 These probes are the evidence behind §6.1. Codex participants are offered only if they pass (step 4).
 
-## 11. Implementation plan (one commit per step, dependencies first)
+## 11. Implementation plan (dependencies first)
+
+Each step is a focused unit; runtime and new-test commits may be separate.
 
 1. Scaffold `apps/team-discuss` (package, tsconfig, README stub, this design)
 2. `core/agents.ts`: port adapters; start pi from PATH; detect installed agents; list pi
