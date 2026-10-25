@@ -12,11 +12,16 @@ It is the standalone sibling of the [`discuss` pi extension](../../packages/disc
 
 In development; not published yet. The design is in [DESIGN.md](DESIGN.md).
 
+Currently **only pi's participant and moderator seats are verified and offered**. Claude's
+live checks are blocked by its login; Codex's tested model cannot read files with the
+provisional limits. Both remain unavailable rather than weakening those limits. Results and
+remaining checks are in [PROBES.md](PROBES.md).
+
 ## Requirements
 
 - macOS or Linux
 - Node.js ≥ 22.19
-- At least one agent CLI installed and logged in: `pi`, `claude` or `codex`
+- A verified agent CLI installed and logged in (currently `pi`; see Status above)
 
 ## Development
 
@@ -44,8 +49,10 @@ installed but unauthenticated CLIs fail.
 Each probe uses a private temporary workspace and config home, copies saved credentials
 (not symlinks), and removes them after cleanup. On macOS, Claude's default Keychain login is
 read into the temporary credential file; its contents never go to logs or command arguments.
-User configuration files are not edited, and their contents are checked for changes. These
-are live provider requests: credential refreshes and account-side effects are not isolated.
+Original settings/MCP configuration files are not edited; the fixture checks selected source
+files for changes (not the whole home directory or Keychain). These are live provider requests:
+credential refreshes and account-side effects are not isolated. SIGKILL or power loss can
+leave private temporary credential copies behind; see [PROBES.md](PROBES.md#scope-and-cleanup).
 A revoked Claude login needs `claude auth login` before retrying.
 
 Provider-only pi extensions must be supplied explicitly rather than loading all of your

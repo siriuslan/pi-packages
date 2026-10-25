@@ -1,7 +1,8 @@
 # team-discuss — Design
 
-Status: **draft v3**, updated after two reviews ([REVIEW.md](REVIEW.md) and the review of
-v2; see §14). Awaiting approval. No code yet.
+Status: **approved v3**, updated after two reviews ([REVIEW.md](REVIEW.md) and the review of
+v2; see §14). Steps 1–3 are implemented. Step 4 has an opt-in probe suite: pi passed, Claude
+verification is blocked by authentication, and Codex remains unavailable. See [PROBES.md](PROBES.md).
 
 A standalone terminal app for moderated, multi-participant AI discussions, like the
 [`discuss` pi extension](../../packages/discuss), but here **the app is the moderator** and the
@@ -351,26 +352,28 @@ The read-only view (§8) only allows scrolling, `/takeover` and `/back`.
 | Agent | Participant: read-only, no MCP | Moderator: no tools |
 |---|---|---|
 | pi | **Offered.** `--tools read,grep,find,ls --exclude-tools 'mcp__*' --no-mcp`. The allowlist turns off every built-in and extension tool not named, and `--exclude-tools` turns off MCP tools by name. `--no-mcp` stops pi's built-in MCP support from even starting its servers. | **Offered.** `--no-tools --no-mcp`. pi documents `--no-tools` as turning off all built-in, extension, custom and MCP tools. |
-| Claude Code | **Offered.** `--tools Read,Grep,Glob` (plus `WebSearch,WebFetch` for role participants), the same list in `--allowed-tools`, and `--strict-mcp-config` (no MCP servers). | **Offered.** `--tools "" --strict-mcp-config` |
-| Codex | **Offered only if verified in step 4** (§11), with these limits: `sandbox_mode=read-only` and `approval_policy=never`; `--ignore-user-config`, so the user's MCP servers and plugins aren't loaded; and `--disable` for every enabled feature that isn't on a short allowlist. The list of enabled features comes from `codex features list` at run time, so features added by future Codex versions start out disabled. If that list can't be read, Codex isn't offered. | **Not offered.** Codex has no tool-free mode: even with its shell off, other built-in tools remain, such as `view_image`. |
+| Claude Code | **Not offered pending verification.** The adapter uses `--tools Read,Grep,Glob` (plus `WebSearch,WebFetch` for role participants), the same list in `--allowed-tools`, and `--strict-mcp-config` (no MCP servers). Live turns are blocked by expired/revoked credentials. | **Not offered pending verification.** `--tools "" --strict-mcp-config` is implemented, but the live no-tools check is also authentication-blocked. |
+| Codex | **Not offered.** The provisional adapter uses `sandbox_mode=read-only`, `approval_policy=never`, `--ignore-user-config`, and disables every non-removed feature outside a short allowlist (including features currently off). `codex features list` is cached per app process and must be readable. Live probes found the tested model requires the disabled `code_mode_host`, so even reads fail. The host's execution paths, sandbox, MCP/plugins and resume need verification before the allowlist can grow. | **Not offered.** Codex has no tool-free mode: even with its shell off, other built-in tools remain, such as `view_image`. |
 
 - **Fail closed in practice.** pi and Claude Code take allowlists, so a tool added in a new
   version is off. A CLI that doesn't know one of these flags exits with an error, so the turn
-  fails instead of running without limits. Tested versions: pi 1.4.0, Claude Code 2.1.308,
-  Codex 0.156.1.
+  fails instead of running without limits. Probes used pi 1.4.0, Claude Code 2.1.308 and Codex
+  0.156.1 on macOS; **only pi passed**. Detailed evidence and unverified checks are in
+  [PROBES.md](PROBES.md). Restart the app and rerun probes after upgrading a CLI.
 - **Remaining gaps, stated as policy:**
   - pi: a third-party extension that *replaces* pi's MCP support (such as `pi-mcp-adapter`)
     isn't stopped by `--no-mcp` and may still start its servers. Its tools still can't be
     called.
   - Codex: a future built-in tool that isn't behind a feature flag would not be caught by the
-    feature allowlist. Codex's OS sandbox still blocks writes and network for anything run
-    through its shell.
+    feature allowlist. Read-only shell sandbox enforcement and the Code Mode host have not
+    passed the live probes; Codex remains unavailable, not assumed safe.
   - The user's own setup still applies, such as Claude Code hooks and pi extensions' event
     handlers. Extensions stay loaded because they may provide model providers.
 - **Shared role workspace (D2):** participants can't write, and all three CLIs keep their
   session files under the home folder (`~/.pi/agent/sessions`, `~/.claude/projects`,
   `~/.codex/sessions`), not in the working folder. The extension's role workspaces on this
-  machine are still empty after real discussions. The probes in §10 check this for every agent.
+  machine are still empty after real discussions. The probes in §10 check this for every
+  candidate agent; so far, only pi has passed the live workspace checks.
 
 ### 6.2 Agent sessions are disposable
 
@@ -766,17 +769,23 @@ tokens are spent.
 | Adapters | Recorded JSON event lines; argument lists contain exactly the §6.1 flags per agent and seat kind; ineligible combinations are refused before spawning |
 | `DiscussionRun` | Comments queued during a turn, combined with `/pause`, `/wrap` and interrupt; comment after an automatic pause; checkpoint; `@Human`; turn failure and retry; reset |
 
-**Opt-in real-agent probes**, `npm run test:agents` (spends tokens). For every installed
-agent and seat kind, each probe runs in an empty temp folder:
+**Opt-in real-agent probes**, `npm run test:agents` (spends tokens). These use `.probe.ts`,
+which the token-free `npm test` glob never runs. For every installed candidate agent and
+supported seat kind, a fresh temporary workspace contains only the test fixtures (secret
+file and canary configuration). Config homes and credential copies are private and temporary;
+the user's real configuration is not edited. CLI absence is a skip, but authentication or
+capability failures fail the suite. See README.md for selection/model/provider overrides.
 
 | Probe | Pass when |
 |---|---|
-| Write probe (participants) | The prompt explicitly asks the agent to create a file in its folder, create one outside it (a temp path), and, if it has a shell, run a command that writes. Neither file exists afterwards and the folder is unchanged. |
-| MCP canary (participants) | A tiny stdio MCP server that creates a marker file when it starts is configured where the agent would pick it up for this run: project-level config in the temp folder, or a temporary config home, never the user's real config. The marker is absent afterwards. |
-| No tools (moderator) | Asked to list its folder and read a file holding a secret string. Its JSON stream shows no tool calls and its reply doesn't contain the secret. |
-| Basic turn | A reply is produced and a session id is reported |
+| Write probe (participants) | Asked to create files inside and outside the workspace with editing tools and shell commands. No files appear; workspace contents, modes and structure are unchanged. Codex must actually execute failing shell writes, not just refuse verbally. |
+| MCP canary | User and trusted-project stdio servers write startup markers. Positive controls must start both servers before absence under the adapter's limits counts as evidence. Neither starts on fresh or resumed participant/moderator turns. |
+| No tools (moderator) | Asked to list its folder and read a fresh secret file. JSON shows no tool calls (nor declared tools, when reported); the reply doesn't contain the secret. |
+| Basic turn and resume | Reply, session id and real usage; participants actually read the test secret. A second turn retains the same session id and recalls a random passphrase not repeated in that prompt. |
 
-These probes are the evidence behind §6.1. Codex participants are offered only if they pass (step 4).
+These probes are the evidence behind §6.1. Recorded results: [PROBES.md](PROBES.md). Pi passes;
+Claude's live verification is still blocked by its login; Codex's fresh read checks failed.
+No blocked or failed case is treated as a capability pass.
 
 ## 11. Implementation plan (dependencies first)
 
@@ -786,8 +795,8 @@ Each step is a focused unit; runtime and new-test commits may be separate.
 2. `core/agents.ts`: port adapters; start pi from PATH; detect installed agents; list pi
    models; per-seat limits and eligibility (§6.1); argument-list tests
 3. `core/processes.ts`: process groups, cleanup, shutdown (§6.3); tests with fake agents
-4. Opt-in real-agent probes (§10); verify the Codex limits and set Codex's participant
-   eligibility from the result
+4. Opt-in real-agent probes (§10); set eligibility from actual results. Harness implemented,
+   pi verified and Codex left unavailable. Claude still needs a working login and passing probes.
 5. `core/protocol.ts`: port; summary brief; mention rules (§5.1); tests
 6. `core/lock.ts`: lock protocol (§4.4); tests
 7. `core/discussion.ts`: commit rule, validation, replay, sessions rule, transcript rendering; tests
@@ -821,8 +830,11 @@ Commit titles use the prefix `team-discuss`, e.g. `team-discuss-add home store`.
 - **CLI behavior changes.** The limits in §6.1 depend on each CLI's flags. Unknown flags fail
   closed, the adapter tests pin the argument lists, and the probes catch changed behavior.
   Rerun the probes when raising the tested versions.
-- **Codex may be participant-ineligible in v1** if step 4 can't verify its limits. Codex is
-  never offered as moderator (§6.1).
+- **Codex is currently participant-ineligible**: its Code Mode host is outside the provisional
+  allowlist, so the tested model cannot read files. Verifying that host is follow-up work,
+  not grounds to weaken the limits. Codex is never offered as moderator (§6.1).
+- **Claude verification is authentication-blocked.** Its seats stay unavailable until the
+  user repairs the login and both participant and no-tools moderator probes pass.
 - **Spending while nobody watches:** limited by checkpoints and visible cost. A budget cap is a
   later option. A takeover can waste at most one turn (§4.4).
 - **Dashboard speed:** it replays every event log on open. That's fine for hundreds of
@@ -833,15 +845,15 @@ Commit titles use the prefix `team-discuss`, e.g. `team-discuss-add home store`.
 
 ## 13. Open questions and things to verify
 
-No open design decisions. To verify during implementation:
-- **Step 4 (Codex):**
-  - Does `--ignore-user-config` also keep project-level config, MCP servers and plugins out,
-    including on `exec resume`?
-  - Which features belong on the allowlist?
-  - Is there a tool-free mode? Not expected, so Codex stays off as moderator.
-- **Step 4 (pi):** the MCP canary passes with `--no-mcp --exclude-tools 'mcp__*'`, and the
-  moderator probe passes with `--no-tools`.
-- **Step 2:** the output format of `pi --list-models`.
+No open design decisions. Verification status:
+- **Step 4 (Claude): blocked.** Repair the revoked/expired login, rerun the live probes, and
+  enable each seat only after its checks pass. No login/configuration repair was automated.
+- **Codex follow-up, before offering participants:** verify the required Code Mode host,
+  actual inside/outside shell-write denials, project/user MCP and plugin isolation, and resume
+  with unchanged limits. The fresh read failure leaves these unverified. Moderator stays off.
+- **Step 4 (pi): passed on macOS, 2026-10-25.** User/project MCP startup controls and suppression,
+  read-only workspace checks, stdin-only prompts, no-tools moderator and session resume.
+- **Step 2: checked.** `pi --list-models` uses the provider/model table parsed by the adapter.
 - **Step 10:** pi-tui works standalone, and the packed, installed app runs, including the
   clipboard add-on.
 
