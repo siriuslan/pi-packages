@@ -285,11 +285,11 @@ describe("failed turns", () => {
 });
 
 describe("which agent may take which seat", () => {
-	test("only pi's seat limits have passed the real-agent probes so far", async () => {
+	test("pi is verified; Claude's startup writes keep both seats unavailable", async () => {
 		assert.equal(await unavailableReason("pi", "participant"), undefined);
 		assert.equal(await unavailableReason("pi", "moderator"), undefined);
 		for (const kind of ["participant", "moderator"] as const) {
-			assert.match((await unavailableReason("claude", kind)) ?? "", /isn't verified|aren't verified/);
+			assert.match((await unavailableReason("claude", kind)) ?? "", /startup can write project settings/);
 		}
 	});
 

@@ -1,8 +1,9 @@
 # team-discuss — Design
 
 Status: **approved v3**, updated after two reviews ([REVIEW.md](REVIEW.md) and the review of
-v2; see §14). Steps 1–3 are implemented. Step 4 has an opt-in probe suite: pi passed, Claude
-verification is blocked by authentication, and Codex remains unavailable. See [PROBES.md](PROBES.md).
+v2; see §14). Steps 1–3 are implemented. Step 4 has an opt-in probe suite: pi passed; Claude
+fails fresh-workspace nonmutation despite a working login; Codex remains unavailable.
+See [PROBES.md](PROBES.md).
 
 A standalone terminal app for moderated, multi-participant AI discussions, like the
 [`discuss` pi extension](../../packages/discuss), but here **the app is the moderator** and the
@@ -352,7 +353,7 @@ The read-only view (§8) only allows scrolling, `/takeover` and `/back`.
 | Agent | Participant: read-only, no MCP | Moderator: no tools |
 |---|---|---|
 | pi | **Offered.** `--tools read,grep,find,ls --exclude-tools 'mcp__*' --no-mcp`. The allowlist turns off every built-in and extension tool not named, and `--exclude-tools` turns off MCP tools by name. `--no-mcp` stops pi's built-in MCP support from even starting its servers. | **Offered.** `--no-tools --no-mcp`. pi documents `--no-tools` as turning off all built-in, extension, custom and MCP tools. |
-| Claude Code | **Not offered pending verification.** The adapter uses `--tools Read,Grep,Glob` (plus `WebSearch,WebFetch` for role participants), the same list in `--allowed-tools`, and `--strict-mcp-config` (no MCP servers). Live turns are blocked by expired/revoked credentials. | **Not offered pending verification.** `--tools "" --strict-mcp-config` is implemented, but the live no-tools check is also authentication-blocked. |
+| Claude Code | **Not offered.** The adapter uses `--tools Read,Grep,Glob` (plus `WebSearch,WebFetch` for role participants), matching `--allowed-tools`, and `--strict-mcp-config`. Login works, but fresh-workspace probes show CLI startup can migrate legacy MCP approvals into `.claude/settings.local.json`. Tool allowlists do not prevent that write. | **Not offered.** `--tools "" --strict-mcp-config` produced no tools or secret leakage in fresh turns, but the same startup migration fails workspace nonmutation before resume can be checked. |
 | Codex | **Not offered.** The provisional adapter uses `sandbox_mode=read-only`, `approval_policy=never`, `--ignore-user-config`, and disables every non-removed feature outside a short allowlist (including features currently off). `codex features list` is cached per app process and must be readable. Live probes found the tested model requires the disabled `code_mode_host`, so even reads fail. The host's execution paths, sandbox, MCP/plugins and resume need verification before the allowlist can grow. | **Not offered.** Codex has no tool-free mode: even with its shell off, other built-in tools remain, such as `view_image`. |
 
 - **Fail closed in practice.** pi and Claude Code take allowlists, so a tool added in a new
@@ -784,7 +785,9 @@ capability failures fail the suite. See README.md for selection/model/provider o
 | Basic turn and resume | Reply, session id and real usage; participants actually read the test secret. A second turn retains the same session id and recalls a random passphrase not repeated in that prompt. |
 
 These probes are the evidence behind §6.1. Recorded results: [PROBES.md](PROBES.md). Pi passes;
-Claude's live verification is still blocked by its login; Codex's fresh read checks failed.
+Claude's login now works, but fresh-workspace checks fail on CLI MCP approval migration;
+Codex's fresh read checks failed. Control commands must restore the original temporary
+configuration and workspace rather than absorbing their writes into a new baseline.
 No blocked or failed case is treated as a capability pass.
 
 ## 11. Implementation plan (dependencies first)
@@ -796,7 +799,8 @@ Each step is a focused unit; runtime and new-test commits may be separate.
    models; per-seat limits and eligibility (§6.1); argument-list tests
 3. `core/processes.ts`: process groups, cleanup, shutdown (§6.3); tests with fake agents
 4. Opt-in real-agent probes (§10); set eligibility from actual results. Harness implemented,
-   pi verified and Codex left unavailable. Claude still needs a working login and passing probes.
+   pi verified; Claude and Codex remain unavailable on fresh-workspace and read failures,
+   respectively. Further launch-strategy verification is needed before offering either.
 5. `core/protocol.ts`: port; summary brief; mention rules (§5.1); tests
 6. `core/lock.ts`: lock protocol (§4.4); tests
 7. `core/discussion.ts`: commit rule, validation, replay, sessions rule, transcript rendering; tests
@@ -833,8 +837,10 @@ Commit titles use the prefix `team-discuss`, e.g. `team-discuss-add home store`.
 - **Codex is currently participant-ineligible**: its Code Mode host is outside the provisional
   allowlist, so the tested model cannot read files. Verifying that host is follow-up work,
   not grounds to weaken the limits. Codex is never offered as moderator (§6.1).
-- **Claude verification is authentication-blocked.** Its seats stay unavailable until the
-  user repairs the login and both participant and no-tools moderator probes pass.
+- **Claude startup can write project settings.** Its login works, but both seats stay
+  unavailable: CLI migration of legacy MCP approvals changes a fresh working folder even
+  with strict MCP and no tools. A verified non-mutating launch strategy is needed; neither
+  pre-migrating user files nor relaxing the probe baseline counts as a fix.
 - **Spending while nobody watches:** limited by checkpoints and visible cost. A budget cap is a
   later option. A takeover can waste at most one turn (§4.4).
 - **Dashboard speed:** it replays every event log on open. That's fine for hundreds of
@@ -846,8 +852,10 @@ Commit titles use the prefix `team-discuss`, e.g. `team-discuss-add home store`.
 ## 13. Open questions and things to verify
 
 No open design decisions. Verification status:
-- **Step 4 (Claude): blocked.** Repair the revoked/expired login, rerun the live probes, and
-  enable each seat only after its checks pass. No login/configuration repair was automated.
+- **Claude follow-up, before offering either seat:** avoid CLI startup writes of legacy
+  project MCP approvals without editing user configuration; then pass complete fresh/resumed
+  probes. Authentication is resolved, not the remaining blocker. See PROBES.md for the
+  stricter baseline, observed migration and unsuccessful override/command diagnostics.
 - **Codex follow-up, before offering participants:** verify the required Code Mode host,
   actual inside/outside shell-write denials, project/user MCP and plugin isolation, and resume
   with unchanged limits. The fresh read failure leaves these unverified. Moderator stays off.

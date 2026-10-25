@@ -68,12 +68,12 @@ export function agentSummary(s: { agent: AgentId; model: string; thinking: strin
  */
 const SEATS: Record<AgentId, Record<SeatKind, true | string>> = {
 	pi: { participant: true, moderator: true },
-	// Live probes are blocked by an expired/revoked Claude login. Documented
-	// flags aren't evidence that these seats passed: keep them closed until
-	// the participant and no-tools moderator probes can actually run.
+	// Strict MCP and no-tools still let Claude migrate legacy project MCP
+	// approvals into workspace settings.local.json on startup. Pre-migrating
+	// the workspace in a probe isn't evidence that fresh startup is read-only.
 	claude: {
-		participant: "Claude Code's participant limits aren't verified yet",
-		moderator: "Claude Code's no-tools moderator mode isn't verified yet",
+		participant: "Claude Code can't keep participants read-only: startup can write project settings",
+		moderator: "Claude Code can't keep the moderator workspace unchanged: startup can write project settings",
 	},
 	codex: {
 		participant: "Codex's read-only limits aren't verified: the tested model needs the disabled Code Mode host",

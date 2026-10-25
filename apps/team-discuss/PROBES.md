@@ -9,7 +9,7 @@ security isolation. Linux live probes have not been run.
 | Agent / model | Participant | Moderator | Current app policy |
 |---|---|---|---|
 | pi 1.4.0 / `anthropic/claude-opus-5-5`, thinking `low` | **Passed**, fresh and resumed | **Passed**, fresh and resumed | Both seats offered |
-| Claude Code 2.1.308 / `opus`, effort `low` | **Blocked by authentication**, with and without web tools | **Blocked by authentication** | Both seats unavailable pending verification |
+| Claude Code 2.1.308 / `opus`, effort `low` | **Failed fresh-workspace nonmutation**: CLI creates project MCP approval settings | No tools or secret leakage observed, but **failed fresh-workspace nonmutation** | Both seats unavailable |
 | Codex 0.156.1 / `gpt-5.6-terra`, effort `low` | **Failed**: required Code Mode host disabled; no working read tools | Not run: no supported tool-free mode | Neither seat offered |
 
 Availability is a source-controlled policy, not automatically enabled when a test exits.
@@ -37,29 +37,48 @@ The last four pi adapter turns reported **$0.0501 and 14,464 tokens**. This is n
 bill: earlier reruns, control commands, failed turns and providers that do not report dollar
 cost are not included in that figure.
 
-### Claude Code: authentication blocker, not a tool-limits result
+### Claude Code: login works; fresh startup writes project settings
 
-The default macOS Keychain credential was copied into a private temporary Claude config
-home. Both user and project MCP positive controls started successfully. The project MCP
-approval command saved `.claude/settings.local.json`; this was included in the fixture
-baseline **before** the first adapter turn, not ignored during write checks.
+The earlier authentication blocker was resolved by the user. **Only Claude was retried**;
+pi and Codex were not rerun. The same default macOS Keychain login was copied into a private
+temporary config home; the probe did not perform an interactive login or replace saved user
+credentials.
 
-Participant turns then reported:
+The first retry produced a partial result:
 
-> Failed to authenticate: OAuth session expired and could not be refreshed
+- Participant fresh/resumed turns, with and without web tools, read the test secret, retained
+  session memory, used only `Read`, and passed write/MCP checks **after the MCP controls had
+  already migrated the fixture's approval settings**.
+- A fresh moderator used no tools, declared no tools, and did not reveal the file secret, but
+  created `.claude/settings.local.json`. Its workspace check failed before the resume turn.
 
-Moderator turns reported:
+That exposed a blind spot in the participant fixture: including the control-generated file
+in a new baseline hid the same fresh-start write. The canary controls now restore **both**
+the original temporary `.claude.json` legacy approval record and the original workspace,
+removing only their generated local settings file. The baseline is no longer replaced.
+A token-free fake-CLI regression test checks this restoration.
 
-> Failed to authenticate: OAuth token revoked. Please log in again or contact your administrator.
+Under the corrected probe, **fresh participant (`webSearch=false`) and fresh moderator turns
+both created `.claude/settings.local.json`** and failed the unchanged-workspace assertion.
+The fixture represents an existing legacy project MCP approval in the CLI's global state.
+This is CLI startup migration, not the model being allowed a write tool. It happens despite
+`--strict-mcp-config`, and for the moderator despite `--tools ""` too. The fresh failures
+prevented resume checks in this stricter run; `webSearch=true` was excluded from that targeted
+rerun to avoid repeating the same startup failure.
 
-No participant read/write/resume or moderator no-tools claim can be made from those failed
-turns. The allowlist flags remain implemented and covered by fake-CLI tests, but both seats
-are gated until their live checks pass. The probe did not attempt an interactive login or
-replace the user's saved credentials.
+An attempted `--settings '{"enableAllProjectMcpServers":false}'` override did not prevent the
+moderator write and was **not kept** in the adapter. Separate token-free `mcp get` diagnostics
+still created the file with `--setting-sources ""`, `--restricted`, or `--safe-mode`. Those
+command diagnostics are not evidence that every possible launch strategy was tested.
 
-To unblock, the user can run `claude auth login`, then rerun only Claude's probes. Once both
-seat kinds pass, change their availability policy and its unit test in a separate commit.
-A successful login alone is not the missing tool-limits evidence.
+Both seats remain gated. A verified way to avoid startup writes without editing the user's
+configuration is still needed, followed by the complete fresh/resumed checks. Keeping the
+migration output in the baseline, pre-migrating the user's files, or simply logging in again
+is not a read-only fix. No claim is made that the moderator leaked the secret or had tools:
+its no-tools assertions passed; the unresolved failure is workspace nonmutation.
+
+The final targeted retry's two adapter turns reported **$0.0544 and 14,383 tokens**; this does
+not include the earlier retries. The token-free suite now has **63 passing tests**.
 
 ### Codex: leave participants unavailable
 
@@ -93,13 +112,13 @@ whose pi Anthropic login needs the provider extension:
 TEAM_DISCUSS_PROBE_PI_EXTENSIONS='["/absolute/path/to/pi-anthropic-auth/src/index.ts"]' \
   npm run test:agents
 
-# After repairing Claude's login:
+# Inspect Claude alone (currently fails the fresh-workspace startup checks):
 TEAM_DISCUSS_PROBE_AGENTS=claude npm run test:agents
 ```
 
 The full opt-in suite currently exits nonzero for the failures above. Missing CLIs or agents
 excluded with `TEAM_DISCUSS_PROBE_AGENTS` are explicitly skipped; failed or blocked probes
-are not rewritten as passing tests. `npm test` remains token-free: all **62 tests passed**.
+are not rewritten as passing tests. `npm test` remains token-free: all **63 tests passed**.
 
 ## Scope and cleanup
 

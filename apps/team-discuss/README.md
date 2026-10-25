@@ -13,9 +13,10 @@ It is the standalone sibling of the [`discuss` pi extension](../../packages/disc
 In development; not published yet. The design is in [DESIGN.md](DESIGN.md).
 
 Currently **only pi's participant and moderator seats are verified and offered**. Claude's
-live checks are blocked by its login; Codex's tested model cannot read files with the
-provisional limits. Both remain unavailable rather than weakening those limits. Results and
-remaining checks are in [PROBES.md](PROBES.md).
+login now works, but its CLI can write project MCP approval settings on startup even without
+tools. Codex's tested model cannot read files with the provisional limits. Both remain
+unavailable rather than weakening those limits. Results and remaining checks are in
+[PROBES.md](PROBES.md).
 
 ## Requirements
 
@@ -53,7 +54,8 @@ Original settings/MCP configuration files are not edited; the fixture checks sel
 files for changes (not the whole home directory or Keychain). These are live provider requests:
 credential refreshes and account-side effects are not isolated. SIGKILL or power loss can
 leave private temporary credential copies behind; see [PROBES.md](PROBES.md#scope-and-cleanup).
-A revoked Claude login needs `claude auth login` before retrying.
+A revoked Claude login needs `claude auth login` before retrying, but the current capability
+blocker is a startup write, not authentication. Logging in does not by itself enable a seat.
 
 Provider-only pi extensions must be supplied explicitly rather than loading all of your
 usual extensions. For example, if your Anthropic login needs `pi-anthropic-auth`:
