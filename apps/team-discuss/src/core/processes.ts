@@ -147,11 +147,15 @@ async function runChild(req: ProcessRequest, signal: AbortSignal, graceMs: numbe
 		child.stdin.end(req.input);
 		await ended;
 		if (timeout) clearTimeout(timeout);
-		if (pgid !== undefined) await cleanGroup(pgid, graceMs);
+		if (pgid !== undefined) {
+			await cleanGroup(pgid, graceMs);
+			// Cleanup is complete even if pipe draining later fails. Retaining a
+			// dead pgid would let the exit fallback signal an unrelated reused id.
+			groups.delete(pgid);
+		}
 		// Drain final buffered output, but don't hang if an escaped descendant
 		// (outside our group) has inherited a pipe. Such a turn fails closed.
 		await drain(closed);
-		if (pgid !== undefined) groups.delete(pgid);
 		cleaned = true;
 		if (signal.aborted) throw aborted();
 		if (failure) throw failure;
