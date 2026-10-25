@@ -25,3 +25,39 @@ npm install
 npm run typecheck
 npm test
 ```
+
+`npm test` uses fake CLIs and never spends tokens. Real-agent capability probes are
+separate and **spend tokens**:
+
+```bash
+npm run test:agents
+# Narrow a rerun to selected CLIs:
+TEAM_DISCUSS_PROBE_AGENTS=pi,claude npm run test:agents
+```
+
+The probes test the production adapters, including fresh/resumed sessions, participant
+write attempts inside/outside the workspace, MCP startup canaries with positive controls,
+and tool-free moderators. Codex is probed even while it is unavailable in the app; a failed
+probe is not converted into a pass or silently skipped. Missing CLIs are reported as skips;
+installed but unauthenticated CLIs fail.
+
+Each probe uses a private temporary workspace and config home, copies saved credentials
+(not symlinks), and removes them after cleanup. On macOS, Claude's default Keychain login is
+read into the temporary credential file; its contents never go to logs or command arguments.
+User configuration files are not edited, and their contents are checked for changes. These
+are live provider requests: credential refreshes and account-side effects are not isolated.
+A revoked Claude login needs `claude auth login` before retrying.
+
+Provider-only pi extensions must be supplied explicitly rather than loading all of your
+usual extensions. For example, if your Anthropic login needs `pi-anthropic-auth`:
+
+```bash
+TEAM_DISCUSS_PROBE_PI_EXTENSIONS='["/absolute/path/to/pi-anthropic-auth/src/index.ts"]' \
+  TEAM_DISCUSS_PROBE_AGENTS=pi npm run test:agents
+```
+
+Optional overrides: `TEAM_DISCUSS_PROBE_PI_MODEL`, `TEAM_DISCUSS_PROBE_CLAUDE_MODEL`,
+`TEAM_DISCUSS_PROBE_CODEX_MODEL` (otherwise app defaults), `TEAM_DISCUSS_PROBE_THINKING`
+(default `low`), and `TEAM_DISCUSS_PROBE_CLAUDE_CREDENTIALS` (an existing credential-file path,
+for a nonstandard login location). Do not put credential values in these variables. Turns
+have a two-minute timeout; interruption awaits process cleanup before removing temp files.
