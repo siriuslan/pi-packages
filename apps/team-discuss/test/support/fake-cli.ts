@@ -10,6 +10,8 @@ import * as fs from "node:fs";
 export interface FakeScript {
 	/** Lines printed on stdout for a turn (usually JSON events). */
 	stdout?: string[];
+	/** Leave the last event unterminated to exercise final-buffer handling. */
+	omitFinalNewline?: boolean;
 	stderr?: string;
 	exitCode?: number;
 	/** Never finish the turn: wait to be killed. */
@@ -21,6 +23,7 @@ export interface FakeScript {
 }
 
 export interface FakeCall {
+	pid: number;
 	agent: string;
 	argv: string[];
 	stdin: string;
@@ -34,16 +37,19 @@ const script: FakeScript = scriptFile && fs.existsSync(scriptFile) ? JSON.parse(
 const isQuery = argv[0] === "features" || argv.includes("--list-models");
 // Queries are run without input; reading stdin there would wait forever.
 const stdin = isQuery ? "" : fs.readFileSync(0, "utf8");
-const call: FakeCall = { agent, argv, stdin, cwd: process.cwd() };
+const call: FakeCall = { pid: process.pid, agent, argv, stdin, cwd: process.cwd() };
 if (process.env.FAKE_AGENT_LOG) fs.appendFileSync(process.env.FAKE_AGENT_LOG, `${JSON.stringify(call)}\n`);
 
 if (argv[0] === "features") answer(script.featuresList);
 else if (argv.includes("--list-models")) answer(script.listModels);
-else if (script.hang) setInterval(() => {}, 60_000);
 else {
-	for (const line of script.stdout ?? []) process.stdout.write(`${line}\n`);
+	const lines = script.stdout ?? [];
+	for (const [i, line] of lines.entries()) {
+		process.stdout.write(line + (script.omitFinalNewline && i === lines.length - 1 ? "" : "\n"));
+	}
 	if (script.stderr) process.stderr.write(script.stderr);
-	process.exitCode = script.exitCode ?? 0;
+	if (script.hang) setInterval(() => {}, 60_000);
+	else process.exitCode = script.exitCode ?? 0;
 }
 
 function answer(output: string | undefined): void {
