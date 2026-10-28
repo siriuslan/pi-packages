@@ -144,7 +144,8 @@ npm install
 npm test
 ```
 
-The tests use a scripted UI and temporary files; they don't run agents or spend tokens.
+The tests use a scripted UI, temporary files and a fake agent CLI; they don't run real agents
+or spend tokens.
 
 ## License
 
