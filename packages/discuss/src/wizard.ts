@@ -157,16 +157,15 @@ async function askRole(ctx: ExtensionCommandContext, taken: Set<string>): Promis
 	const role = await askText(
 		ctx,
 		[
-			`Role instruction for @${name}: who they are, what they care about, how they should argue.`,
+			`Role instruction for @${name} (optional, Enter to skip): who they are, what they care about, how they should argue.`,
 			`e.g. Security reviewer. Skeptical of new dependencies; argue from concrete threats and cite sources.`,
 			`(Longer material? After setup, put files in @${name}'s workspace folder.)`,
 		].join("\n"),
-		(v) => (v ? undefined : `@${name} needs a role instruction. Type it below, or press Esc to go back.`),
 	);
 	if (role === undefined) return undefined;
 	const agent = await askAgent(ctx, name, true);
 	if (!agent) return undefined;
-	return { name, role, ...agent };
+	return { name, ...(role ? { role } : {}), ...agent };
 }
 
 async function askName(ctx: ExtensionCommandContext, taken: Set<string>, suggested?: string): Promise<string | undefined> {

@@ -37,22 +37,21 @@ export function cleanReply(reply: string, name: string): string {
 export function describe(p: Participant): string {
 	const role = p.role ? p.role.trim().split("\n")[0].slice(0, 160) : "";
 	if (p.projectDir) return `@${p.name} — project \`${path.basename(p.projectDir)}\` (${p.projectDir})${role ? `; role: ${role}` : ""}`;
-	return `@${p.name} — role: ${role}`;
+	return `@${p.name} — role${role ? `: ${role}` : ""}`;
 }
 
 /** System-prompt addition for a participant. Constant for the whole discussion. */
 export function participantBrief(d: Discussion, p: Participant): string {
 	const others = d.participants.filter((o) => o !== p).map((o) => `- ${describe(o)}`);
+	const role = p.role?.trim();
 	const identity = p.projectDir
 		? [
 				`You represent the project in your working directory (${p.cwd}).`,
 				`Ground what you say in that project's actual code and docs: look before you answer, and cite file paths.`,
-				...(p.role ? [``, `Your role in this discussion:`, p.role.trim()] : []),
+				...(role ? [``, `Your role in this discussion:`, role] : []),
 			]
 		: [
-				`Your role in this discussion:`,
-				p.role?.trim() ?? "",
-				``,
+				...(role ? [`Your role in this discussion:`, role, ``] : []),
 				`Your working directory (${p.cwd}) may contain reference material for you (code, documents).`,
 				`On your first turn, list it and read anything relevant; ground what you say in it when present.`,
 			];

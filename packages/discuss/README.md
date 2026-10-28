@@ -26,10 +26,10 @@ Add any mix of:
 
 - **Project folder**: the participant runs *in* that folder and answers from its real code and
   docs. The tag defaults to the folder name. A role instruction is optional.
-- **Role**: a tag name plus a role instruction (e.g. "security reviewer, skeptical of new
-  dependencies"). Each role gets its own workspace folder,
-  `<cwd>/<YYYYMMDD-HHmm>-<topic>-<role-name>/`. Put code or documents there if you want the
-  role to use them.
+- **Role**: a tag name plus an optional role instruction (e.g. "security reviewer, skeptical of
+  new dependencies"). Press Enter to leave the instruction empty. Each role gets its own
+  workspace folder, `<cwd>/<YYYYMMDD-HHmm>-<topic>-<role-name>/`. Put code or documents there if
+  you want the role to use them.
 
 ### Agents
 

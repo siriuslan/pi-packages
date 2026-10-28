@@ -27,7 +27,7 @@ export interface ParticipantSpec {
 	name: string;
 	/** Absolute project folder. Present → project participant; absent → role participant with its own workspace. */
 	projectDir?: string;
-	/** Role instruction. Required for role participants, optional for project participants. */
+	/** Optional role instruction for either kind of participant. */
 	role?: string;
 	/** Agent CLI this participant runs on. Fixed for the whole discussion. */
 	agent: AgentId;
