@@ -147,6 +147,11 @@ npm test
 The tests use a scripted UI, temporary files and a fake agent CLI; they don't run real agents
 or spend tokens.
 
+## Publishing
+
+See the repository's [publishing guide](https://github.com/siriuslan/pi-packages#publishing),
+which covers releases for all packages.
+
 ## License
 
 MIT; see [LICENSE](LICENSE).
