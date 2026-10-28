@@ -116,6 +116,15 @@ pi install /path/to/pi-packages/packages/discuss
 
 Or try it for one session: `pi -e /path/to/pi-packages/packages/discuss`.
 
+Run the regression tests from `packages/discuss` after installing its peer dependencies:
+
+```bash
+npm install
+npm test
+```
+
+The tests use a scripted UI and temporary files; they don't run agents or spend tokens.
+
 ## License
 
 MIT; see [LICENSE](LICENSE).
