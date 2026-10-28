@@ -1,6 +1,6 @@
 {
   "name": "@siriuslan/discuss",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Pi extension for moderated multi-participant discussions: project folders and/or roles, each on its own agent (pi, Claude Code or Codex), model and thinking level, recorded in one markdown document",
   "type": "module",
   "scripts": {
