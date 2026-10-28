@@ -66,6 +66,24 @@ workspace in every discussion.
 **Checkpoint:** every N turns (default: participants × 3, set during setup) you are asked to
 continue, pause to add something, or wrap up.
 
+### Discussion boundaries
+
+- **Moderator:** read only the shared discussion document, not participants' project folders
+  or reference-material workspaces. Ask the owning participant to inspect their material
+  and report findings in the discussion instead.
+- **Participants:** read, list and search files only within their own working folder. Do not
+  inspect other participants' folders, parent paths or symlinks leading outside that folder.
+  The extension supplies the transcript; participants should not open it themselves.
+- **Questions:** raise every question in the shared discussion, @-mentioning its owner or
+  `@Human`. Ask for missing information rather than reading another participant's material.
+- **Public moderator messages:** `discuss_post` accepts `speaker: "moderator"` for questions
+  and comments under `[Moderator]`; it still defaults to `[Human]` for human input. A
+  `discuss_dispatch` note is also recorded under `[Moderator]`, addressed to its participant,
+  before the turn starts. Notes remain in the discussion even if that turn fails.
+
+These are **agent instructions, not filesystem isolation**. They are included in participant
+briefs and repeated every turn, including turns that resume an existing agent session.
+
 ## Files
 
 ```
@@ -105,6 +123,9 @@ process (`pi`, `claude` or `codex`) per participant turn, in the participant's f
 Participants are limited to read-only tools (Codex: its read-only sandbox, which still lets shell
 commands read files anywhere); role participants on Claude Code or Codex can search the web.
 The extension itself writes only the discussion files listed above and saved teams.
+
+The folder boundaries above are prompt-level rules. The existing CLI permissions may still
+allow reads outside the working folder; these rules are not a security boundary for secrets.
 
 ## Development
 

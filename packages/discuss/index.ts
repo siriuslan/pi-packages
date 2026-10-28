@@ -99,7 +99,7 @@ async function checkpointGate(ctx: ExtensionContext, d: Discussion): Promise<str
 	if (choice === wrapUp) {
 		return "At the checkpoint the human asked to wrap up. Do not dispatch anyone; write the summary now with discuss_summarize.";
 	}
-	return "At the checkpoint the human paused the discussion. Do not dispatch anyone. Ask the human what they want to add, record it with discuss_post, and continue only when they say so.";
+	return 'At the checkpoint the human paused the discussion. Do not dispatch anyone. Record your question with discuss_post using speaker="moderator", then ask the human what they want to add. Record their answer with discuss_post (the default speaker is "human"), and continue only when they say so.';
 }
 
 export default function (pi: ExtensionAPI) {
@@ -203,18 +203,19 @@ export default function (pi: ExtensionAPI) {
 		name: "discuss_dispatch",
 		label: "Discuss: Dispatch",
 		description:
-			"Give one participant the floor: they are shown everything new in the discussion document, reply in their own persistent session, and the reply is appended to the document. Returns the reply and who is still active.",
+			"Give one participant the floor: they are shown everything new in the discussion document, reply in their own persistent session, and the reply is appended to the document. Any moderator note is recorded publicly before the turn. Returns the reply and who is still active.",
 		promptSnippet: "Give one discussion participant the floor",
 		promptGuidelines: [
 			"Dispatch exactly one participant per discuss_dispatch call; choose the next speaker yourself from open @mentions and missing viewpoints.",
 			"Don't dispatch settled participants unless they've been @-mentioned since.",
+			"Do not inspect participant folders yourself. Ask the owning participant for findings in the shared discussion; notes are public, not a private question channel.",
 		],
 		defaultActive: false,
 		executionMode: "sequential",
 		parameters: Type.Object({
 			discussionId,
 			participant: Type.String({ description: "Participant name, e.g. matching-ui (with or without @)." }),
-			note: Type.Optional(Type.String({ description: "Optional moderator note for this participant only, e.g. 'answer @sf360's question about batching'." })),
+			note: Type.Optional(Type.String({ description: "Optional public moderator note or question addressed to this participant, e.g. 'answer @sf360's question about batching'. Appended to the shared discussion under [Moderator] before the turn." })),
 		}),
 		async execute(_id, params, signal, onUpdate, ctx) {
 			const d = requireDiscussion(ctx.cwd, params.discussionId);
@@ -225,6 +226,8 @@ export default function (pi: ExtensionAPI) {
 				const stop = await checkpointGate(ctx, d);
 				if (stop) return { content: [{ type: "text", text: stop }], details: undefined };
 			}
+
+			if (params.note?.trim()) appendSection(d, "[Moderator]", `@${p.name}\n\n${params.note.trim()}`);
 
 			const progress = (status: string) =>
 				onUpdate?.({ content: [{ type: "text", text: `@${p.name} (${agentSummary(p)}) ${status}` }], details: undefined });
@@ -238,7 +241,7 @@ export default function (pi: ExtensionAPI) {
 					model: p.model,
 					thinking: p.thinking,
 					instructions: participantBrief(d, p),
-					message: turnMessage(p, unseenText(d, p), params.note),
+					message: turnMessage(p, unseenText(d, p)),
 					webSearch: hasWebSearch(p),
 				},
 				signal,
@@ -270,19 +273,21 @@ export default function (pi: ExtensionAPI) {
 
 	pi.registerTool({
 		name: "discuss_post",
-		label: "Discuss: Post human comment",
+		label: "Discuss: Post comment",
 		description:
-			"Append the human's comment to the discussion document under [Human], verbatim. Participants see it on their next turn; anyone it @-mentions becomes active again.",
-		promptSnippet: "Record the human's comment in the discussion",
+			"Append a human comment (default speaker) or your own moderator question to the shared discussion. Use speaker='moderator' for your questions, never attribute them to the human. Participants see the text on their next turn; anyone it @-mentions becomes active again.",
+		promptSnippet: "Record human comments and moderator questions in the discussion",
+		promptGuidelines: ["Raise every moderator question in the shared discussion with speaker='moderator' before asking for an answer. Record human answers verbatim with the default human speaker."],
 		defaultActive: false,
 		executionMode: "sequential",
 		parameters: Type.Object({
 			discussionId,
-			text: Type.String({ description: "The human's comment, verbatim (keep their @mentions)." }),
+			text: Type.String({ description: "The human's comment verbatim, or your moderator question. Keep @mentions." }),
+			speaker: Type.Optional(Type.Union([Type.Literal("human"), Type.Literal("moderator")], { description: "Who is speaking: defaults to human. Use moderator for your own questions or comments." })),
 		}),
 		async execute(_id, params, _signal, _onUpdate, ctx) {
 			const d = requireDiscussion(ctx.cwd, params.discussionId);
-			appendSection(d, "[Human]", params.text);
+			appendSection(d, params.speaker === "moderator" ? "[Moderator]" : "[Human]", params.text);
 			return { content: [{ type: "text", text: `Posted to ${d.docPath}.\n\n${statusReport(d)}` }], details: undefined };
 		},
 	});

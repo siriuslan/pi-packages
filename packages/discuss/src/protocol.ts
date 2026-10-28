@@ -40,6 +40,16 @@ export function describe(p: Participant): string {
 	return `@${p.name} — role${role ? `: ${role}` : ""}`;
 }
 
+/** Shared instructions, repeated each turn so resumed CLI sessions get the current rules too. */
+function participantRules(p: Participant): string[] {
+	return [
+		`- Read, list and search files only under your own working directory (${p.cwd}). Do not inspect another participant's folder or any path outside your working directory, including through parent paths or symlinks.`,
+		`- Use the discussion text supplied in your turn; do not open the shared discussion document yourself. The extension reads and writes it for you.`,
+		`- Raise all questions and requests for information in your discussion reply, @-mentioning the relevant participant or @Human. If you need material outside your working directory, ask its owner to inspect it and share findings in the discussion; never read it directly or use a private question channel.`,
+		`- Do not modify files. Propose actions instead of doing them.`,
+	];
+}
+
 /** System-prompt addition for a participant. Constant for the whole discussion. */
 export function participantBrief(d: Discussion, p: Participant): string {
 	const others = d.participants.filter((o) => o !== p).map((o) => `- ${describe(o)}`);
@@ -66,21 +76,21 @@ export function participantBrief(d: Discussion, p: Participant): string {
 		`- [Human] — the person who raised the topic; they may join in at any time.`,
 		`A moderator decides who speaks next; you only speak when it's your turn.`,
 		``,
-		`The discussion document is ${d.docPath}. Each turn you are shown everything added to it since your previous turn, so you don't need to re-read it.`,
+		`The discussion document is ${d.docPath}. Each turn you are shown everything added to it since your previous turn; use that supplied text instead of reading the document from disk.`,
 		``,
 		`Rules:`,
 		`- Reply with your comment only. It is appended to the document under "[${p.name}]" automatically, so don't add a heading or signature.`,
 		`- Be focused and concise, like a real discussion comment. Don't restate the discussion.`,
 		`- To ask or answer a specific participant, @-mention them (e.g. @${d.participants.find((o) => o !== p)?.name ?? "someone"}). Mentions decide who speaks next. Use @Human for questions only the human can answer.`,
-		`- You can read files but must not modify anything. Propose actions instead of doing them.`,
+		...participantRules(p),
 		...(hasWebSearch(p) ? [`- You can search the web. Cite the sources (URLs) of facts you take from it.`] : []),
 		`- If you have nothing further to add and nobody has asked you anything, reply with exactly: ${HAPPY_PHRASE}`,
 		`  Speak up again only when someone @-mentions you or new information changes your view.`,
 	].join("\n");
 }
 
-/** The user message for one turn: whatever the participant hasn't seen, plus an optional moderator note. */
-export function turnMessage(p: Participant, unseen: { text: string; kind: "all" | "new" | "edited" }, note?: string): string {
+/** The user message for one turn: unseen discussion text (including public notes) and the current rules. */
+export function turnMessage(p: Participant, unseen: { text: string; kind: "all" | "new" | "edited" }): string {
 	const intro = {
 		all: `Here is the discussion document so far:`,
 		new: `New in the discussion since your previous turn:`,
@@ -91,7 +101,9 @@ export function turnMessage(p: Participant, unseen: { text: string; kind: "all" 
 		`It's your turn, @${p.name}.`,
 		``,
 		body,
-		...(note?.trim() ? [``, `Moderator note: ${note.trim()}`] : []),
+		``,
+		`Workspace and discussion rules (apply on every turn):`,
+		...participantRules(p),
 		``,
 		`Reply now with your comment (or exactly "${HAPPY_PHRASE}" if you have nothing to add).`,
 	].join("\n");
@@ -108,11 +120,16 @@ export function moderatorBrief(d: Discussion, mode: "start" | "continue"): strin
 		`Participants (agent, model and thinking level are fixed per participant):`,
 		...d.participants.map((p) => `- ${describe(p)} [${agentSummary(p)}${hasWebSearch(p) ? ", web search" : ""}]`),
 		``,
+		`Discussion boundaries:`,
+		`- Do not read, list, search or otherwise inspect any participant's project folder or reference-material workspace. Base your moderation only on the shared discussion document and discuss_* tool results; the shared document itself is the only file you should read, even when it lives under a participant's project folder.`,
+		`- If source inspection is needed, ask the participant who owns that folder to inspect it and share findings in the discussion. Do not inspect it yourself or ask a different participant to read it.`,
+		`- All questions must be raised in the shared discussion, not solely in chat or private notes. Post your own questions with discuss_post using speaker="moderator" and @-mention the relevant participant or @Human before asking for an answer.`,
+		``,
 		`How to moderate:`,
-		`1. Read the document once to understand the topic.`,
-		`2. Call discuss_dispatch for exactly ONE participant at a time. Start with whoever the topic concerns most; after that, prefer participants with open @-mentions, then whoever's view is still missing. Use the optional \`note\` to steer a participant (e.g. "answer @x's question about Y").`,
+		`1. Read only the discussion document to understand the topic.`,
+		`2. Call discuss_dispatch for exactly ONE participant at a time. Start with whoever the topic concerns most; after that, prefer participants with open @-mentions, then whoever's view is still missing. The optional \`note\` steers a participant and is recorded publicly as [Moderator] before their turn.`,
 		`3. Don't dispatch a settled participant (said "${HAPPY_PHRASE}" and not @-mentioned since). discuss_dispatch and discuss_status report who is settled.`,
-		`4. When a reply @-mentions @Human, stop and ask me. Record my answer verbatim with discuss_post, then continue.`,
+		`4. When a reply @-mentions @Human, stop and show me that recorded question. Record any follow-up question with discuss_post using speaker="moderator" first. Record my answer verbatim with discuss_post (the default speaker is "human"), then continue.`,
 		`5. When everyone is settled, write a plain-English summary with discuss_summarize: the conclusion, decisions, open questions, and action items per participant (a diagram if it helps). Then tell me where the document is.`,
 		`6. If discuss_dispatch says the human paused or asked to wrap up at a checkpoint, follow that instead of dispatching.`,
 		`Never write participants' replies yourself or edit the document directly — only use the discuss_* tools.`,
